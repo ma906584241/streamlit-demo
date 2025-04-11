@@ -1,0 +1,77 @@
+import streamlit as st
+import json
+import os
+from Dify.Comlan_Demo.db_manager import DatabaseManager
+from Dify.Comlan_Demo.login import LoginManager
+
+# 创建数据库管理器实例
+db_manager = DatabaseManager()
+login_manager = LoginManager()
+
+def load_app_config():
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        st.error("配置文件不存在！")
+        return {"apps": []}
+
+# 主页面
+def main():
+    # 移除标题，因为登录页面已经包含了标题
+    if not st.session_state.get('logged_in', False):
+        login_manager.render_login_page()
+    else:
+        st.title("ComLan智能助手")
+        # 控制侧边栏的显示
+#        if st.button("切换侧边栏"):
+#            st.session_state.sidebar_visible = not st.session_state.get('sidebar_visible', True)
+        
+        # 加载应用配置
+        config = load_app_config()
+        apps = config['apps']
+        
+        # 初始化当前选中的应用
+        if 'current_app' not in st.session_state:
+            st.session_state.current_app = apps[0]['name'] if apps else None
+
+        if st.session_state.get('sidebar_visible', True):
+            with st.sidebar:
+                st.title("应用选择")
+                # 使用按钮替代radio
+                for app in apps:
+                    if st.button(app['name'], key=f"btn_{app['name']}", use_container_width=True):
+                        st.session_state.current_app = app['name']
+                        st.rerun()  # 刷新页面以显示选中的应用
+        else:
+            # 主界面中的按钮
+            st.subheader("应用选择")
+            cols = st.columns(len(apps))
+            for idx, app in enumerate(apps):
+                with cols[idx]:
+                    if st.button(app['name'], key=f"btn_main_{app['name']}", use_container_width=True):
+                        st.session_state.current_app = app['name']
+                        st.rerun()  # 刷新页面以显示选中的应用
+
+        # 显示选中的应用
+        selected_app = next((app for app in apps if app['name'] == st.session_state.current_app), None)
+        if selected_app:
+            st.header(selected_app['name'])
+            st.markdown(f"""
+            <div style="width: 100%; height: 700px; border: 1px solid #ccc; padding: 10px;">
+                <iframe
+                    src="{selected_app['url']}"
+                    style="width: 100%; height: 100%;"
+                    frameborder="0"
+                    allow="microphone">
+                </iframe>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        if st.button("退出登录"):
+            st.session_state.logged_in = False
+            st.rerun()
+
+if __name__ == "__main__":
+    main()

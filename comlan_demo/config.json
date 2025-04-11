@@ -1,0 +1,20 @@
+{
+    "apps": [
+        {
+            "name": "售后故障处理助手",
+            "url": "http://192.168.88.101/chatbot/kfAW2hnbVLIaLZxo"
+        },
+        {
+            "name": "客户背调助手",
+            "url": "http://172.200.234.13/chatbot/vzicKhGMKHV5cPLG"
+        },
+        {
+            "name": "ChatBI",
+            "url": "http://172.200.234.13/chatbot/uXArlDP7jccKB5KX"
+        },
+        {
+            "name": "昆联成功案例咨询",
+            "url": "http://192.168.88.101/chat/TokMgzC0V6ibvX0N"
+        }
+    ]
+}

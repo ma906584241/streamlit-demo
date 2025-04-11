@@ -1,0 +1,146 @@
+import streamlit as st
+import psycopg2
+from datetime import datetime
+import hashlib
+import json
+import os
+from Dify.db_manager import DatabaseManager
+
+st.set_page_config(page_title="ComLan智能助手", layout="wide")
+
+# 数据库连接配置
+DB_CONFIG = {
+    "host": "c-cosmos-pg-comlan.yca6d4g7qznr6b.postgres.cosmos.azure.com",
+    "port": 5432,
+    "database": "citus",
+    "user": "citus",
+    "password": "!@#qwe123qwe"
+}
+
+# 创建数据库管理器实例
+db_manager = DatabaseManager(DB_CONFIG)
+
+# 初始化数据库
+def init_db():
+    db_manager.init_db()
+
+# 密码加密
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# 用户注册
+def register_user(username, password):
+    hashed_password = hash_password(password)
+    return db_manager.register_user(username, hashed_password)
+
+# 用户登录验证
+def verify_user(username, password):
+    hashed_password = hash_password(password)
+    return db_manager.verify_user(username, hashed_password)
+
+def load_app_config():
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        st.error("配置文件不存在！")
+        return {"apps": []}
+
+# 主页面
+def main():
+    st.title("欢迎使用ComLan智能助手")
+    
+    # 初始化session state
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+
+    # 如果未登录，显示登录/注册界面
+    if not st.session_state.logged_in:
+        tab1, tab2 = st.tabs(["登录", "注册"])
+        
+        with tab1:
+            st.subheader("登录")
+            login_username = st.text_input("用户名", key="login_username")
+            login_password = st.text_input("密码", type="password", key="login_password")
+            
+            if st.button("登录"):
+                if verify_user(login_username, login_password):
+                    st.session_state.logged_in = True
+                    st.success("登录成功！")
+                    st.rerun()
+                else:
+                    st.error("用户名或密码错误！")
+        
+        with tab2:
+            st.subheader("注册")
+            reg_username = st.text_input("用户名", key="reg_username")
+            reg_password = st.text_input("密码", type="password", key="reg_password")
+            reg_password2 = st.text_input("确认密码", type="password", key="reg_password2")
+            
+            if st.button("注册"):
+                if reg_password != reg_password2:
+                    st.error("两次输入的密码不一致！")
+                elif register_user(reg_username, reg_password):
+                    st.success("注册成功！请返回登录页面进行登录。")
+    
+    # 如果已登录，显示Dify iframe
+    else:
+        # 控制侧边栏的显示
+        if st.button("切换侧边栏"):
+            st.session_state.sidebar_visible = not st.session_state.get('sidebar_visible', True)
+        
+        # 加载应用配置
+        config = load_app_config()
+        apps = config['apps']
+        
+        if st.session_state.get('sidebar_visible', True):
+            with st.sidebar:
+                st.title("应用选择")
+                app_choice = st.radio(
+                    "请选择要使用的应用：",
+                    [app['name'] for app in apps],
+                    key="app_choice"
+                )
+        else:
+            app_choice = st.radio(
+                "请选择要使用的应用：",
+                [app['name'] for app in apps],
+                key="app_choice"
+            )
+
+        # 显示选中的应用
+        selected_app = next((app for app in apps if app['name'] == app_choice), None)
+        if selected_app:
+            st.header(selected_app['name'])
+            st.markdown(f"""
+            <div style="width: 100%; height: 700px; border: 1px solid #ccc; padding: 10px;">
+                <iframe
+                    src="{selected_app['url']}"
+                    style="width: 100%; height: 100%;"
+                    frameborder="0"
+                    allow="microphone">
+                </iframe>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # 添加样式
+        st.markdown("""
+        <style>
+            iframe {
+                background: white;
+            }
+            .stRadio > label {
+                font-weight: bold;
+                color: #0066cc;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        if st.button("退出登录"):
+            st.session_state.logged_in = False
+            st.rerun()
+
+if __name__ == "__main__":
+    init_db()
+    main()
